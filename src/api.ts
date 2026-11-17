@@ -109,3 +109,16 @@ export interface SendLinkState {
 export const startSendLink = callable<[], SendLinkState>("start_send_link");
 export const stopSendLink = callable<[], SendLinkState>("stop_send_link");
 export const sendLinkState = callable<[], SendLinkState>("send_link_state");
+
+export interface PluginLog {
+  ok: boolean;
+  name?: string;
+  folder?: string;
+  file?: string;
+  mtime?: number;
+  size?: number;
+  text?: string;
+  error?: string;
+}
+
+export const pluginLog = callable<[name: string, lines: number], PluginLog>("plugin_log");

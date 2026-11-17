@@ -136,6 +136,16 @@ in v0.1.1, so there is no Paste button). The way around it:
   Keep those limits: never let the page install without the Deck's dialog,
   never serve without the code, never leave it running by default.
 
+### Plugin logs in Game Mode
+
+Decky writes each plugin's log to `~/homebrew/logs/<folder>/` (one file per
+start); without the hub, reading one needs Desktop Mode or SSH.
+`backend/logs.py` reads the newest `*.log` of an installed plugin (folders
+come from the installed list, never from a name the caller sends), last 300
+lines / 256 KB. Shown in a plugin's dialog (**View log**, `LogModal.tsx`)
+and on the phone page (`/<code>/logs`, `/<code>/logs/<folder>` as plain
+text, same code and lifetime as the rest of the page, read-only).
+
 ## 5. Updates
 
 - Repository per plugin: a link (`manual`, `install`, `self`) else

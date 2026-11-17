@@ -15,6 +15,7 @@ import os
 import time
 from typing import Any, Awaitable, Callable, Dict, List, Optional
 
+from . import logs as plugin_logs
 from . import package as pkg
 from .github import GitHub, GitHubError, RateLimited, RepoRef, notes_excerpt, parse_link, zip_assets
 from .installed import list_plugins
@@ -34,7 +35,7 @@ class Hub:
     def __init__(self, settings_dir: str, runtime_dir: str, plugins_dir: str,
                  emit: Optional[Emit] = None, log: Callable[[str], None] = lambda _m: None) -> None:
         self.store = Store(os.path.join(settings_dir, "plugin-hub.json"))
-        self.sendlink = LinkServer(self.receive_link, log=log)
+        self.sendlink = LinkServer(self.receive_link, log=log, logs=self.logs_list, log_text=self.log_text)
         self.runtime_dir = runtime_dir
         self.downloads_dir = os.path.join(runtime_dir, "downloads")
         self.plugins_dir = plugins_dir
@@ -359,6 +360,14 @@ class Hub:
             "installed_version": installed,
             "install_type": kind,
         }
+
+    # ------------------------------------------------------------------ logs
+    def logs_list(self) -> List[Dict[str, Any]]:
+        """Installed plugins with their newest log file (backend/logs.py)."""
+        return plugin_logs.summary(self.plugins_dir, self._plugins())
+
+    def log_text(self, name: str, lines: int = plugin_logs.TAIL_LINES) -> Dict[str, Any]:
+        return plugin_logs.plugin_log(self.plugins_dir, self._plugins(), name, lines)
 
     async def receive_link(self, link: str) -> Dict[str, Any]:
         """A link sent from the phone page: resolve it, then let the Deck ask.

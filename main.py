@@ -116,6 +116,12 @@ class Plugin:
     async def send_link_state(self) -> Dict[str, Any]:
         return self._self().hub.sendlink.state()
 
+    # ------------------------------------------------------------------ logs
+    async def plugin_log(self, name: str, lines: int = 300) -> Dict[str, Any]:
+        """The last lines of an installed plugin's newest log."""
+        import asyncio
+        return await asyncio.to_thread(self._self().hub.log_text, name, lines)
+
     # ------------------------------------------------------------------ links
     async def link_repo(self, name: str, link: str) -> Dict[str, Any]:
         return self._self().hub.link(name, link)

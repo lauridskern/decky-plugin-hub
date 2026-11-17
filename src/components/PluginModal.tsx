@@ -4,6 +4,7 @@ import { ConfirmModal, DialogButton, Focusable, ModalRoot, showModal, TextField 
 import { forgetPlugin, linkRepo, PluginView, prepareUpdate, unlinkRepo } from "../api";
 import { requestInstall, uninstall } from "../decky";
 import { linkLabel, statusLine, v } from "../format";
+import { LogModal } from "./LogModal";
 
 interface Props {
   plugin: PluginView;
@@ -132,6 +133,9 @@ export function PluginModal({ plugin, closeModal, onChanged }: Props) {
             Unlink from GitHub
           </DialogButton>
         )}
+        <DialogButton disabled={busy} onClick={() => showModal(<LogModal name={plugin.name} />)}>
+          View log
+        </DialogButton>
         <DialogButton disabled={busy} onClick={remove}>
           Uninstall…
         </DialogButton>

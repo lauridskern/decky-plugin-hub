@@ -49,6 +49,11 @@ await page.locator(".qam-item.field.focusable", { hasText: "ROM-Store" }).click(
 await page.locator(".modal").waitFor();
 await page.screenshot({ path: path.join(here, "modal.png") });
 
+// A plugin's log, for when it does not load.
+await page.locator("button", { hasText: "View log" }).click();
+await page.locator("text=Permission denied").waitFor();
+await page.screenshot({ path: path.join(here, "log.png") });
+
 console.log("Decky calls:");
 for (const c of calls) console.log("  " + c);
 console.log(`console errors: ${errors.length}`);

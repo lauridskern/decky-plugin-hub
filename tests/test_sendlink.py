@@ -30,7 +30,16 @@ class SendLinkTest(unittest.TestCase):
                 return {"ok": False, "message": "no plugin there"}
             return {"ok": True, "message": f"Install {link}: confirm on your Deck."}
 
-        self.server = LinkServer(on_link, host="127.0.0.1", ports=[0])
+        def logs_list():
+            return [{"name": "ROM-Store", "folder": "rom-store-decky", "file": "a.log", "mtime": 0, "size": 2048},
+                    {"name": "Quiet", "folder": "quiet", "file": None, "mtime": None, "size": 0}]
+
+        def log_text(name, lines=300):
+            if name == "rom-store-decky":
+                return {"ok": True, "file": "/x/a.log", "text": "Traceback: boom"}
+            return {"ok": False, "error": f"{name} is not installed."}
+
+        self.server = LinkServer(on_link, host="127.0.0.1", ports=[0], logs=logs_list, log_text=log_text)
         self.state = self.server.start(self.loop)
         self.base = f"http://127.0.0.1:{self.state['port']}"
 
@@ -68,6 +77,23 @@ class SendLinkTest(unittest.TestCase):
         with self.assertRaises(urllib.error.HTTPError):
             self.post("/nope", b"link=a/b")
         self.assertEqual(self.received, [])
+
+    def test_logs_pages_need_the_code(self):
+        code = self.state["code"]
+        status, page = self.get(f"/{code}/logs")
+        self.assertEqual(status, 200)
+        self.assertIn('href="logs/rom-store-decky"', page)
+        self.assertIn("no log yet", page)
+        status, text = self.get(f"/{code}/logs/rom-store-decky")
+        self.assertIn("Traceback: boom", text)
+        with self.assertRaises(urllib.error.HTTPError) as ctx:
+            self.get(f"/{code}/logs/nope")
+        self.assertEqual(ctx.exception.code, 404)
+        for path in ("/logs", "/wrong1/logs", "/wrong1/logs/rom-store-decky"):
+            with self.assertRaises(urllib.error.HTTPError):
+                self.get(path)
+        status, page = self.get(f"/{code}")
+        self.assertIn("Plugin logs", page)
 
     def test_link_is_handed_over(self):
         path = "/" + self.state["code"]

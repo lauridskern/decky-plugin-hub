@@ -13,6 +13,10 @@ Limits that keep it harmless:
 - It never installs anything: Decky asks on the Deck, and only A there
   installs.
 - Bodies over 4 KB are refused; only GET and POST on the code path answer.
+
+The page also lists the plugins' logs (`/<code>/logs`, `/<code>/logs/<folder>`,
+backend/logs.py), so a plugin that does not load can be diagnosed from a
+phone instead of Desktop Mode. Same code, same lifetime, read-only.
 """
 
 from __future__ import annotations
@@ -24,8 +28,9 @@ import socket
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from typing import Any, Awaitable, Callable, Dict, Optional
-from urllib.parse import parse_qs
+import html
+from typing import Any, Awaitable, Callable, Dict, List, Optional
+from urllib.parse import parse_qs, quote, unquote
 
 PORTS = range(8787, 8797)      # tried in order, then any free port
 LIFETIME = 15 * 60             # seconds the page stays up
@@ -98,8 +103,10 @@ PAGE = """<!doctype html>
     <button id="go" type="submit">Send to Deck</button>
   </form>
   <div id="out"></div>
+  <p style="margin-top:28px"><a href="" id="logs" style="color:#6cb6ff">Plugin logs</a> · for when a plugin does not load</p>
 </main>
 <script>
+  document.getElementById("logs").href = location.pathname.replace(/[/]$/, "") + "/logs";
   const f = document.getElementById("f"), go = document.getElementById("go"), out = document.getElementById("out");
   f.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -130,8 +137,12 @@ class LinkServer:
     """One page, one code, started and stopped from the panel."""
 
     def __init__(self, on_link: OnLink, log: Callable[[str], None] = lambda _m: None,
-                 host: str = "0.0.0.0", ports=PORTS, lifetime: float = LIFETIME) -> None:
+                 host: str = "0.0.0.0", ports=PORTS, lifetime: float = LIFETIME,
+                 logs: Optional[Callable[[], List[Dict[str, Any]]]] = None,
+                 log_text: Optional[Callable[..., Dict[str, Any]]] = None) -> None:
         self.on_link = on_link
+        self.logs = logs
+        self.log_text = log_text
         self.log = log
         self.host = host
         self.ports = ports
@@ -210,6 +221,28 @@ class LinkServer:
         raise OSError("No free port for the send-a-link page")
 
     # ------------------------------------------------------------------ requests
+    def _logs_page(self) -> str:
+        rows = []
+        for item in (self.logs() if self.logs else []):
+            if item["file"]:
+                when = time.strftime("%Y-%m-%d %H:%M", time.localtime(item["mtime"]))
+                rows.append(f'<li><a href="logs/{quote(item["folder"])}">{html.escape(item["name"])}</a>'
+                            f' <span class="dim">{when} · {item["size"] // 1024 + 1} KB</span></li>')
+            else:
+                rows.append(f'<li>{html.escape(item["name"])} <span class="dim">no log yet</span></li>')
+        body = "\n".join(rows) or "<li>No plugins found.</li>"
+        return (
+            '<!doctype html><html lang="en"><head><meta charset="utf-8">'
+            '<meta name="viewport" content="width=device-width, initial-scale=1"><title>Plugin logs</title>'
+            "<style>:root{color-scheme:dark}body{margin:0;background:#0e141b;color:#e6edf3;"
+            "font:16px/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}"
+            "main{max-width:460px;margin:0 auto;padding:32px 16px}a{color:#6cb6ff}"
+            "li{margin:10px 0}.dim{color:#9aa7b3;font-size:13px}</style></head><body><main>"
+            "<h1 style='font-size:22px'>Plugin logs</h1>"
+            "<p class='dim'>The newest log of each plugin on the Deck, newest first. Open one, select all and copy it.</p>"
+            f"<ul style='padding-left:18px'>{body}</ul></main></body></html>"
+        )
+
     def _receive(self, link: str) -> Dict[str, Any]:
         """Runs on a request thread; the work happens on the plugin's loop."""
         if not self.loop:
@@ -235,9 +268,18 @@ class LinkServer:
             def log_message(self, *_args: Any) -> None:  # keep the plugin log quiet
                 pass
 
-            def _path_ok(self) -> bool:
+            def _route(self) -> Optional[str]:
+                """What follows the code ("" for the page), or None without it."""
                 path = self.path.split("?", 1)[0].rstrip("/")
-                return bool(outer.code) and secrets.compare_digest(path, "/" + outer.code)
+                if not outer.code:
+                    return None
+                head, _, rest = path.lstrip("/").partition("/")
+                if not secrets.compare_digest(head, outer.code):
+                    return None
+                return rest
+
+            def _path_ok(self) -> bool:
+                return self._route() == ""
 
             def _send(self, status: int, body: bytes, kind: str) -> None:
                 self.send_response(status)
@@ -253,9 +295,18 @@ class LinkServer:
                 self._send(status, json.dumps(data).encode("utf-8"), "application/json")
 
             def do_GET(self) -> None:  # noqa: N802
-                if not self._path_ok():
-                    return self._send(404, b"Not found", "text/plain; charset=utf-8")
-                self._send(200, PAGE.encode("utf-8"), "text/html; charset=utf-8")
+                route = self._route()
+                if route == "":
+                    return self._send(200, PAGE.encode("utf-8"), "text/html; charset=utf-8")
+                if route == "logs" and outer.logs:
+                    return self._send(200, outer._logs_page().encode("utf-8"), "text/html; charset=utf-8")
+                if route is not None and route.startswith("logs/") and outer.log_text:
+                    result = outer.log_text(unquote(route[5:]), 500)
+                    text = result.get("text") if result.get("ok") else result.get("error", "No log.")
+                    header = f"{result.get('file', '')}\n\n" if result.get("ok") else ""
+                    return self._send(200 if result.get("ok") else 404, (header + text).encode("utf-8"),
+                                      "text/plain; charset=utf-8")
+                return self._send(404, b"Not found", "text/plain; charset=utf-8")
 
             def do_POST(self) -> None:  # noqa: N802
                 if not self._path_ok():
