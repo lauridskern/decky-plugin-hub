@@ -34,6 +34,7 @@ backend/
   installed.py          reads ~/homebrew/plugins/*/plugin.json + package.json
   versions.py           tag vs version comparison, Decky InstallType
   settings.py           settings + links + install records (one JSON file)
+  sendlink.py           "Send from your phone": one-page form on the local network
   certs.py              TLS roots (bundled cacert.pem; never unverified)
   cacert.pem            Mozilla CA bundle (SteamOS's is outdated)
 src/
@@ -43,7 +44,9 @@ src/
   format.ts             status lines, relative times
   components/Panel.tsx  the Quick Access panel
   components/PluginModal.tsx  one plugin: link, update/reinstall, unlink, uninstall
+  components/SendFromPhone.tsx  the phone page's address + QR code (qrcode-generator)
 tests/test_hub.py       offline backend tests
+tests/test_sendlink.py  the phone page against a real local socket
 tools/
   verify_package.py     validates a release zip against Decky's installer
   preview/              Chromium harness for the panel (mock @decky/ui, @decky/api)
@@ -113,6 +116,27 @@ PY
    else) is dropped and the plugin's `package.json` version is used again.
    Downloaded zips are pruned after 2 hours (Decky needs them until the user
    confirms).
+
+### Getting a link onto the Deck
+
+Game Mode's on-screen keyboard has no paste key and no Ctrl key, so a long
+link has to be typed (the short `owner/repo` form helps). Two ways around it:
+
+- **Paste** (`Panel.tsx`): reads the clipboard with
+  `navigator.clipboard.readText()` (2.5 s timeout). Whether the Steam client
+  allows that is unknown until it is tried on a Deck; after one refusal the
+  button hides for the session and the line points at the phone page.
+- **Send from your phone** (`backend/sendlink.py`, `SendFromPhone.tsx`):
+  only while the user turned it on, a `ThreadingHTTPServer` on `0.0.0.0`
+  (port 8787-8796, else any) serves one page at `/<6-char code>`; any other
+  path is 404, bodies over 4 KB are refused, and it stops itself 15 minutes
+  after the last start or link. A posted link goes through `Hub.resolve()`
+  on the plugin's loop (`receive_link`); on success the backend emits
+  `plugin_hub_link` with the result, and `index.tsx` (loaded even with the
+  panel closed) calls Decky's `install_plugin`, so **Decky's dialog on the
+  Deck still has to be confirmed with A**. The phone page shows the outcome.
+  Keep those limits: never let the page install without the Deck's dialog,
+  never serve without the code, never leave it running by default.
 
 ## 5. Updates
 
@@ -187,6 +211,10 @@ Install URL for users:
 
 ## 9. Known limitations
 
+- Paste and the phone page are untested on a Deck: whether the Steam client
+  lets a plugin read the clipboard, whether SteamOS lets other devices reach
+  the port (no firewall by default), and that Decky's dialog appears when the
+  link arrives with the Quick Access menu closed.
 - Not yet run on a Deck. The preview harness renders the panel with mocked
   Decky modules; what only a Deck shows: that `window.DeckyBackend` is
   reachable from a plugin on the user's Decky version, that Decky accepts a

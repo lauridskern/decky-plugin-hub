@@ -94,3 +94,18 @@ export const linkRepo = callable<[name: string, link: string], { ok: boolean; er
 export const unlinkRepo = callable<[name: string], HubState>("unlink_repo");
 export const forgetPlugin = callable<[name: string], HubState>("forget_plugin");
 export const setSettings = callable<[changes: Partial<HubSettings> & { github_token?: string }], HubState>("set_settings");
+
+export interface SendLinkState {
+  running: boolean;
+  url: string | null;
+  ip: string | null;
+  port: number | null;
+  code: string | null;
+  /** unix seconds */
+  expires: number | null;
+  error?: string;
+}
+
+export const startSendLink = callable<[], SendLinkState>("start_send_link");
+export const stopSendLink = callable<[], SendLinkState>("stop_send_link");
+export const sendLinkState = callable<[], SendLinkState>("send_link_state");

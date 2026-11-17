@@ -101,11 +101,17 @@ const handlers: Record<string, (...args: any[]) => any> = {
   link_repo: (_n: string, link: string) => ({ ok: true, repo: link }),
   unlink_repo: () => state,
   forget_plugin: () => state,
+  start_send_link: () => (sendLink = { ...sendLinkOn, expires: Date.now() / 1000 + 15 * 60 }),
+  stop_send_link: () => (sendLink = { running: false, url: null, ip: null, port: null, code: null, expires: null }),
+  send_link_state: () => sendLink,
   set_settings: (changes: any) => {
     Object.assign(state.settings, changes);
     return { ...state };
   },
 };
+
+const sendLinkOn = { running: true, url: "http://192.168.1.42:8787/k7m2qp", ip: "192.168.1.42", port: 8787, code: "k7m2qp", expires: 0 };
+let sendLink: any = { running: false, url: null, ip: null, port: null, code: null, expires: null };
 
 export const callable =
   <Args extends any[] = [], Return = void>(route: string) =>

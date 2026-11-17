@@ -2,7 +2,9 @@ import { addEventListener, definePlugin, removeEventListener, toaster } from "@d
 import { staticClasses } from "@decky/ui";
 import { FaGithub } from "react-icons/fa";
 
+import type { Resolved } from "./api";
 import Panel from "./components/Panel";
+import { requestInstall } from "./decky";
 
 interface UpdateNotice {
   updates: { name: string; from: string | null; to: string }[];
@@ -26,6 +28,16 @@ export default definePlugin(() => {
   };
   addEventListener<[UpdateNotice]>("plugin_hub_updates", onUpdates);
 
+  // A link sent from the phone page (backend/sendlink.py), already downloaded
+  // and checked: show Decky's install dialog on the Deck, panel open or not.
+  const onLink = (r: Resolved) => {
+    if (!r?.ok) return;
+    requestInstall(r).catch((err) =>
+      toaster.toast({ title: "Plugin Hub", body: String(err?.message ?? err), icon: <FaGithub /> }),
+    );
+  };
+  addEventListener<[Resolved]>("plugin_hub_link", onLink);
+
   return {
     name: "Plugin Hub",
     titleView: <div className={staticClasses.Title}>Plugin Hub</div>,
@@ -33,6 +45,7 @@ export default definePlugin(() => {
     icon: <FaGithub />,
     onDismount() {
       removeEventListener("plugin_hub_updates", onUpdates);
+      removeEventListener("plugin_hub_link", onLink);
     },
   };
 });

@@ -18,6 +18,7 @@ from typing import Any, Awaitable, Callable, Dict, List, Optional
 from . import package as pkg
 from .github import GitHub, GitHubError, RateLimited, RepoRef, notes_excerpt, parse_link, zip_assets
 from .installed import list_plugins
+from .sendlink import LinkServer
 from .settings import SELF_NAME, Store
 from .versions import install_type, is_update
 
@@ -33,6 +34,7 @@ class Hub:
     def __init__(self, settings_dir: str, runtime_dir: str, plugins_dir: str,
                  emit: Optional[Emit] = None, log: Callable[[str], None] = lambda _m: None) -> None:
         self.store = Store(os.path.join(settings_dir, "plugin-hub.json"))
+        self.sendlink = LinkServer(self.receive_link, log=log)
         self.runtime_dir = runtime_dir
         self.downloads_dir = os.path.join(runtime_dir, "downloads")
         self.plugins_dir = plugins_dir
@@ -243,6 +245,7 @@ class Hub:
             pass
 
     def stop(self) -> None:
+        self.sendlink.stop()
         if self._task:
             self._task.cancel()
             self._task = None
@@ -356,6 +359,26 @@ class Hub:
             "installed_version": installed,
             "install_type": kind,
         }
+
+    async def receive_link(self, link: str) -> Dict[str, Any]:
+        """A link sent from the phone page: resolve it, then let the Deck ask.
+
+        The frontend listens for `plugin_hub_link` and shows Decky's install
+        dialog with the result; nothing is installed without A on the Deck.
+        """
+        result = await self.resolve(link)
+        if not result.get("ok"):
+            return {"ok": False, "message": result.get("error") or "That link has no installable plugin."}
+        if not self.emit:
+            return {"ok": False, "message": "The Deck could not show the install dialog."}
+        try:
+            await self.emit("plugin_hub_link", result)
+        except Exception as exc:
+            self.log(f"could not hand the link to the panel: {exc!r}")
+            return {"ok": False, "message": "The Deck could not show the install dialog."}
+        word = {1: "Reinstall", 2: "Update", 3: "Downgrade"}.get(result.get("install_type") or 0, "Install")
+        return {"ok": True, "name": result.get("name"), "version": result.get("version"),
+                "message": f"{word} {result.get('name')} {result.get('version')}: confirm on your Deck."}
 
     async def prepare_update(self, name: str) -> Dict[str, Any]:
         plugin = next((p for p in self._plugins() if p["name"] == name), None)

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useQuickAccessVisible } from "@decky/api";
+import { addEventListener, removeEventListener, useQuickAccessVisible } from "@decky/api";
 import { ButtonItem, Field, PanelSection, PanelSectionRow, showModal, TextField, ToggleField } from "@decky/ui";
 
 import {
@@ -17,6 +17,7 @@ import {
 import { onInstallFinished, requestInstall, requestInstalls } from "../decky";
 import { ago, statusLine, until, v } from "../format";
 import { PluginModal } from "./PluginModal";
+import { SendFromPhone } from "./SendFromPhone";
 
 type Tone = "info" | "ok" | "error";
 interface Line {
@@ -37,6 +38,21 @@ function StateLine({ line }: { line: Line | null }) {
   );
 }
 
+/**
+ * Game Mode's keyboard has no paste key, so the panel offers a Paste button
+ * that reads the clipboard itself. Whether the Steam client lets a plugin do
+ * that is only known after trying; after a refusal the button goes away for
+ * this session and the phone page is offered instead.
+ */
+let clipboardWorks: boolean | undefined;
+const canTryClipboard = () =>
+  clipboardWorks !== false && typeof navigator !== "undefined" && typeof navigator.clipboard?.readText === "function";
+
+async function readClipboard(): Promise<string> {
+  const timeout = new Promise<never>((_, reject) => setTimeout(() => reject(new Error("timeout")), 2500));
+  return Promise.race([navigator.clipboard.readText(), timeout]);
+}
+
 const errorText = (err: unknown) => String((err as Error)?.message ?? err);
 
 const installWord = (r: Resolved) =>
@@ -49,6 +65,7 @@ export default function Panel() {
   const [busy, setBusy] = useState<string | null>(null);
   const [installLine, setInstallLine] = useState<Line | null>(null);
   const [updateLine, setUpdateLine] = useState<Line | null>(null);
+  const [canPaste, setCanPaste] = useState(canTryClipboard);
   const visible = useQuickAccessVisible();
   const alive = useRef(true);
 
@@ -78,6 +95,34 @@ export default function Panel() {
       off();
     };
   }, [reload]);
+
+  // A link from the phone page: index.tsx already asked Decky to install it.
+  useEffect(() => {
+    const onLink = (r: Resolved) => {
+      if (!r?.ok || !alive.current) return;
+      setInstallLine({ text: `${installWord(r)} ${r.name} ${r.version} (sent from your phone): confirm in Decky's dialog.`, tone: "ok" });
+      reload();
+    };
+    addEventListener<[Resolved]>("plugin_hub_link", onLink);
+    return () => removeEventListener("plugin_hub_link", onLink);
+  }, [reload]);
+
+  const paste = async () => {
+    try {
+      const text = (await readClipboard()).trim();
+      clipboardWorks = true;
+      if (!text) return setInstallLine({ text: "The clipboard is empty.", tone: "info" });
+      setLink(text);
+      setInstallLine(null);
+    } catch {
+      clipboardWorks = false;
+      setCanPaste(false);
+      setInstallLine({
+        text: "The Steam client doesn't let plugins read the clipboard. Use \"Send from your phone\" below.",
+        tone: "error",
+      });
+    }
+  };
 
   const install = async () => {
     const text = link.trim();
@@ -182,6 +227,13 @@ export default function Panel() {
             }}
           />
         </PanelSectionRow>
+        {canPaste && (
+          <PanelSectionRow>
+            <ButtonItem layout="below" disabled={!!busy} onClick={paste}>
+              Paste
+            </ButtonItem>
+          </PanelSectionRow>
+        )}
         <PanelSectionRow>
           <ButtonItem layout="below" disabled={!link.trim() || !!busy} onClick={install}>
             {busy === "install" ? "Working…" : "Install latest release"}
@@ -189,6 +241,8 @@ export default function Panel() {
         </PanelSectionRow>
         <StateLine line={installLine} />
       </PanelSection>
+
+      <SendFromPhone visible={visible} />
 
       <PanelSection title={updates.length ? `Updates (${updates.length})` : "Updates"}>
         {state?.error && (

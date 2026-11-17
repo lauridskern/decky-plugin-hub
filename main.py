@@ -101,6 +101,21 @@ class Plugin:
     async def cancel_install(self, name: str) -> None:
         self._self().hub.cancel(name)
 
+    # ------------------------------------------------------------------ send from a phone
+    async def start_send_link(self) -> Dict[str, Any]:
+        """Serve the send-a-link page on the local network (stops by itself)."""
+        import asyncio
+        try:
+            return self._self().hub.sendlink.start(asyncio.get_running_loop())
+        except OSError as exc:
+            return {"running": False, "error": str(exc)}
+
+    async def stop_send_link(self) -> Dict[str, Any]:
+        return self._self().hub.sendlink.stop()
+
+    async def send_link_state(self) -> Dict[str, Any]:
+        return self._self().hub.sendlink.state()
+
     # ------------------------------------------------------------------ links
     async def link_repo(self, name: str, link: str) -> Dict[str, Any]:
         return self._self().hub.link(name, link)
