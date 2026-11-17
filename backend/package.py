@@ -60,6 +60,22 @@ class PluginPackage:
         }
 
 
+_MANIFEST = re.compile(rb"const manifest\s*=\s*(\{[^}]*\})")
+
+
+def bundle_name(bundle: bytes) -> Optional[str]:
+    """The plugin name @decky/rollup built dist/index.js for, if it says."""
+    match = _MANIFEST.search(bundle[:200_000])
+    if not match:
+        return None
+    try:
+        data = json.loads(match.group(1).decode("utf-8"))
+    except ValueError:
+        return None
+    name = data.get("name") if isinstance(data, dict) else None
+    return name.strip() if isinstance(name, str) else None
+
+
 def inspect_zip(path: str) -> PluginPackage:
     """Read a downloaded zip the way Decky will; raise if Decky would fail."""
     try:
@@ -106,6 +122,17 @@ def inspect_zip(path: str) -> PluginPackage:
             warnings.append("The zip has files next to the plugin folder; Decky ignores them.")
         if f"{folder}/dist/index.js" not in names:
             raise PackageError("The zip has no dist/index.js, so it was never built; Decky cannot load it.", "no_plugin")
+        # @decky/rollup writes plugin.json's name into the bundle at build time,
+        # and @decky/api asks Decky for the backend of *that* name. A zip whose
+        # plugin.json was renamed after the build (an "old URL" copy) loads a
+        # page that calls a plugin that is not there: every call hangs.
+        built_for = bundle_name(zf.read(f"{folder}/dist/index.js"))
+        if built_for and built_for != name.strip():
+            raise PackageError(
+                f"This zip's page was built for the plugin \"{built_for}\" but its plugin.json says \"{name.strip()}\"; "
+                "Decky would load a page that cannot reach its own backend.",
+                "name_mismatch",
+            )
         flags = manifest.get("flags") or []
         root = isinstance(flags, list) and "root" in flags
     digest = hashlib.sha256()

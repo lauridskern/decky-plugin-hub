@@ -136,6 +136,16 @@ in v0.1.1, so there is no Paste button). The way around it:
   Keep those limits: never let the page install without the Deck's dialog,
   never serve without the code, never leave it running by default.
 
+### A zip's page must be built for its own name
+
+`@decky/rollup` writes plugin.json's name into `dist/index.js`
+(`const manifest = {"name":"…"}`) and `@decky/api` calls the backend of that
+name. A zip whose plugin.json was renamed after the build (ROM-Store's old
+`rom-store-decky.zip`) installs, starts its backend, and then every call from
+its page hangs. `package.inspect_zip` refuses such a zip (`name_mismatch`),
+so the resolver moves on to the next asset. Bundles without the line (older
+builds) are accepted.
+
 ### Plugin logs in Game Mode
 
 Decky writes each plugin's log to `~/homebrew/logs/<folder>/` (one file per

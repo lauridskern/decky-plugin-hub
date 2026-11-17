@@ -103,6 +103,19 @@ class PackageTests(unittest.TestCase):
     def tearDown(self):
         shutil.rmtree(self.tmp, ignore_errors=True)
 
+    def test_bundle_built_for_another_name_is_refused(self):
+        tmp = tempfile.mkdtemp()
+        bundle = 'const manifest = {"name":"ROM-Store"};\nconst API_VERSION = 2;\n'
+        bad = make_zip(os.path.join(tmp, "legacy.zip"), plugin_files(
+            "rom-store-decky-legacy", "rom-store-decky", extra={"rom-store-decky-legacy/dist/index.js": bundle}))
+        with self.assertRaises(pkg.PackageError) as ctx:
+            pkg.inspect_zip(bad)
+        self.assertEqual(ctx.exception.kind, "name_mismatch")
+        good = make_zip(os.path.join(tmp, "good.zip"), plugin_files(
+            "rom-store-decky", "ROM-Store", extra={"rom-store-decky/dist/index.js": bundle}))
+        self.assertEqual(pkg.inspect_zip(good).name, "ROM-Store")
+        self.assertIsNone(pkg.bundle_name(b"export default 1;"))  # older builds say nothing: allowed
+
     def test_good_zip(self):
         path = make_zip(os.path.join(self.tmp, "a.zip"), plugin_files("my-plugin", "My-Plugin", "2.1.0"))
         info = pkg.inspect_zip(path)
