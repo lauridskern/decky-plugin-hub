@@ -27,15 +27,6 @@ await page.locator(".qam-input").first().fill("lauridskern/decky-rom-store");
 await page.locator("text=Install latest release").click();
 await page.locator("text=confirm in Decky's dialog").waitFor();
 
-// Paste: the clipboard holds a link (Chromium grants the read here).
-await page.locator(".qam-input").first().fill("");
-await page.evaluate(() => {
-  navigator.clipboard.readText = async () => "https://github.com/lauridskern/decky-emu-hub";
-});
-await page.locator(".qam-button", { hasText: /^Paste$/ }).click();
-await page.waitForFunction(() => document.querySelector(".qam-input")?.value === "https://github.com/lauridskern/decky-emu-hub");
-console.log("paste: filled the field");
-
 // Send from your phone: address and QR code.
 await page.locator(".qam-button", { hasText: "Show the address" }).click();
 await page.locator("text=http://192.168.1.42:8787/k7m2qp").waitFor();
@@ -45,13 +36,6 @@ if (qr !== 1) errors.push("no QR code");
 
 await page.screenshot({ path: path.join(here, "phone.png"), fullPage: true });
 
-// A refused clipboard hides Paste and points at the phone page.
-await page.evaluate(() => {
-  navigator.clipboard.readText = async () => { throw new Error("NotAllowedError"); };
-});
-await page.locator(".qam-button", { hasText: /^Paste$/ }).click();
-await page.locator("text=doesn't let plugins read the clipboard").waitFor();
-if (await page.locator(".qam-button", { hasText: /^Paste$/ }).count()) errors.push("Paste still shown after a refusal");
 await page.locator(".qam-button", { hasText: /^Stop$/ }).click();
 await page.locator("text=Show the address").waitFor();
 

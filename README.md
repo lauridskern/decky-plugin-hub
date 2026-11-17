@@ -17,8 +17,8 @@ have an update. Everything happens in the Quick Access menu, in Game Mode.
 - **Link anything.** A plugin that does not name its repository can be linked
   by hand (press A on it in *Installed*). Unlinking stops the checks.
 - **Keeps itself up to date** the same way.
-- **No typing long links.** The Deck's keyboard can't paste, so there is a
-  **Paste** button, and **Send from your phone** shows a QR code: open it on
+- **No typing long links.** The Deck's keyboard can't paste, so **Send from
+  your phone** shows a QR code: open it on
   your phone, paste the link there, and confirm the install on the Deck. The
   page only runs while you have it on and stops by itself after 15 minutes.
 

@@ -120,12 +120,10 @@ PY
 ### Getting a link onto the Deck
 
 Game Mode's on-screen keyboard has no paste key and no Ctrl key, so a long
-link has to be typed (the short `owner/repo` form helps). Two ways around it:
+link has to be typed (the short `owner/repo` form helps), and the Steam
+client refuses `navigator.clipboard.readText()` to plugins (tried on a Deck
+in v0.1.1, so there is no Paste button). The way around it:
 
-- **Paste** (`Panel.tsx`): reads the clipboard with
-  `navigator.clipboard.readText()` (2.5 s timeout). Whether the Steam client
-  allows that is unknown until it is tried on a Deck; after one refusal the
-  button hides for the session and the line points at the phone page.
 - **Send from your phone** (`backend/sendlink.py`, `SendFromPhone.tsx`):
   only while the user turned it on, a `ThreadingHTTPServer` on `0.0.0.0`
   (port 8787-8796, else any) serves one page at `/<6-char code>`; any other
@@ -189,6 +187,27 @@ Install URL for users:
 - The backend runs as the `deck` user (no `root` flag). It only reads
   `~/homebrew/plugins`; Decky (root) writes there.
 
+
+### Decky's Python has only some of the standard library
+
+Decky Loader runs plugin backends with the Python frozen into its
+PluginLoader binary (PyInstaller, Python 3.14 in v3.3.1). It contains only
+the standard-library modules Decky itself pulls in. **`xml.etree` is not
+there** (`xml.sax`, `xml.parsers.expat` are). One `import` of a missing
+module stops the whole backend from loading, and every call from the UI then
+fails. That is what Emu Hub v0.1.1 did: the page sat on "Looking at what
+is installed…" and Settings stayed empty, because `configfmt.py` imported
+`xml.etree` for Cemu's settings.xml.
+
+- `tests/test_imports.py` checks every import in `main.py` and `backend/`
+  against `tests/decky_modules.txt`, the module list read out of
+  PluginLoader v3.3.1 (PYZ, base_library.zip, lib-dynload, bootstrap).
+  It runs with the other unit tests in CI and before a release.
+- After a Decky Loader update, regenerate the list: download `PluginLoader`
+  from the decky-loader release, `pip install pyinstaller` in a venv, read
+  the archive with `PyInstaller.archive.readers.CArchiveReader` (the PYZ and
+  `base_library.zip` entries, plus the `lib-dynload/*.so` names).
+
 ## 8. Rules worth keeping
 
 - **Decky installs, the hub never does.** No extracting into the plugins
@@ -211,10 +230,6 @@ Install URL for users:
 
 ## 9. Known limitations
 
-- Paste and the phone page are untested on a Deck: whether the Steam client
-  lets a plugin read the clipboard, whether SteamOS lets other devices reach
-  the port (no firewall by default), and that Decky's dialog appears when the
-  link arrives with the Quick Access menu closed.
 - Not yet run on a Deck. The preview harness renders the panel with mocked
   Decky modules; what only a Deck shows: that `window.DeckyBackend` is
   reachable from a plugin on the user's Decky version, that Decky accepts a
