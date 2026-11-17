@@ -1,0 +1,12 @@
+node_modules/
+dist/
+*.log
+__pycache__/
+*.pyc
+tools/preview/preview.js
+.DS_Store
+Plugin-Hub.zip
+/package/
+
+# Stray unpacked copies of the release zip must never be committed
+/decky-plugin-hub/

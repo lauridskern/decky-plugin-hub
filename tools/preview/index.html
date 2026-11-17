@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Plugin Hub - panel preview</title>
+    <style>
+      html, body { margin: 0; background: #0b0e12; font: 14px "Motiva Sans", "Noto Sans", Arial, sans-serif; color: #dcdedf; }
+      /* The Quick Access menu is about 330 px wide on a 1280x800 Deck. */
+      .qam { width: 330px; min-height: 100vh; background: #23262e; box-sizing: border-box; padding-bottom: 24px; }
+      .qam-title { font-size: 18px; font-weight: 700; padding: 14px 16px 6px; color: #fff; }
+      .qam-section { padding: 6px 16px 10px; }
+      .qam-section-title { font-size: 12px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #9aa1a8; padding: 10px 0 4px; }
+      .qam-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,.08); }
+      .qam-item.below { display: block; }
+      .qam-item.nosep { border-bottom: none; }
+      .qam-item.field.focusable { cursor: pointer; }
+      .qam-item.field.focusable:focus { outline: 2px solid #fff; outline-offset: 2px; border-radius: 2px; }
+      .qam-label { font-size: 15px; color: #fff; }
+      .qam-desc { font-size: 12px; color: #8b929a; margin-top: 2px; line-height: 16px; }
+      .qam-inline { flex: 0 0 auto; }
+      .qam-button { display: block; width: 100%; margin-top: 6px; padding: 9px 12px; border: 0; border-radius: 2px; background: #3d4450; color: #fff; font: inherit; font-size: 14px; cursor: pointer; }
+      .qam-button:disabled { opacity: .45; }
+      .qam-button.dialog { margin-top: 0; }
+      .qam-input { display: block; width: 100%; box-sizing: border-box; margin: 6px 0 2px; padding: 8px; border: 0; border-radius: 2px; background: #0e141b; color: #fff; font: inherit; }
+      .qam-toggle { width: 44px; height: 22px; border-radius: 11px; border: 0; background: #3d4450; position: relative; flex: 0 0 auto; cursor: pointer; }
+      .qam-toggle span { position: absolute; left: 3px; top: 3px; width: 16px; height: 16px; border-radius: 50%; background: #b8bcbf; }
+      .qam-toggle.on { background: #1a9fff; }
+      .qam-toggle.on span { left: 25px; background: #fff; }
+      .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.6); display: flex; align-items: center; justify-content: center; }
+      .modal { width: 560px; background: #23262e; padding: 24px; box-sizing: border-box; border-radius: 4px; }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script src="./preview.js"></script>
+  </body>
+</html>

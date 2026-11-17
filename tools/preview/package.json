@@ -1,0 +1,16 @@
+{
+  "name": "plugin-hub-preview",
+  "private": true,
+  "type": "module",
+  "description": "Renders the Quick Access panel outside the Steam client so it can be screenshotted.",
+  "scripts": {
+    "build": "node build.mjs",
+    "shots": "node build.mjs && node shoot.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2",
+    "playwright": "^1.65.0",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "name": "Plugin-Hub",
+  "author": "Laurids Kern",
+  "flags": [],
+  "api_version": 1,
+  "publish": {
+    "tags": ["plugins", "github", "updater", "installer"],
+    "description": "Install Decky plugins straight from a GitHub link and get told when they have an update.",
+    "image": ""
+  }
+}

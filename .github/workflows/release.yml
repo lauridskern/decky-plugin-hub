@@ -1,0 +1,70 @@
+name: Build and release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Backend tests
+        run: python3 -m unittest discover -s tests
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build the frontend bundle
+        run: npm run build
+
+      - name: Stamp the version from the tag
+        run: |
+          # Decky shows the version from package.json, so it has to match the
+          # release tag.
+          VERSION="${GITHUB_REF_NAME#v}"
+          python3 - "$VERSION" <<'PYEOF'
+          import json, pathlib, sys
+          version = sys.argv[1]
+          for name in ("package.json", "package-lock.json"):
+              path = pathlib.Path(name)
+              data = json.loads(path.read_text())
+              data["version"] = version
+              if name == "package-lock.json" and "" in data.get("packages", {}):
+                  data["packages"][""]["version"] = version
+              path.write_text(json.dumps(data, indent=2) + "\n")
+          PYEOF
+          echo "version stamped: $VERSION"
+
+      - name: Package the plugin
+        run: |
+          # Decky unpacks the zip straight into ~/homebrew/plugins and then
+          # looks for a FOLDER that contains plugin.json, so the package needs
+          # a single top level directory.
+          mkdir -p package/decky-plugin-hub
+          rsync -a \
+            --exclude "node_modules/" --exclude "src/" --exclude ".git/" \
+            --exclude ".github/" --exclude "__pycache__/" --exclude "*.pyc" \
+            --exclude "tests/" --exclude ".claude/" --exclude "tools/" \
+            --exclude "package/" --exclude "dist/*.map" \
+            ./ package/decky-plugin-hub/
+          cd package && zip -qr ../Plugin-Hub.zip decky-plugin-hub
+
+      - name: Check the package installs the way Decky installs it
+        run: python3 tools/verify_package.py Plugin-Hub.zip
+
+      - name: Attach the package to a release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: Plugin-Hub.zip
+          generate_release_notes: true
